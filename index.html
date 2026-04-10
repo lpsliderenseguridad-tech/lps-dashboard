@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LPS Seguridad — Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --am:#FFD000;--am2:#F5A800;
+  --bg:#080808;--bg2:#0f0f0f;--bg3:#161616;
+  --borde:#242424;--texto:#f5f5f5;--gris:#888;
+  --verde:#27AE60;--rojo:#E74C3C;--azul:#2980B9;
+}
+html,body{height:100%;font-family:'Barlow',sans-serif;background:var(--bg);color:var(--texto);overflow-x:hidden}
+
+/* ── LOGIN ── */
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg)}
+.login-box{background:var(--bg2);border:1px solid var(--borde);border-radius:16px;padding:48px 40px;width:100%;max-width:400px}
+.login-logo{font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:900;letter-spacing:-2px;margin-bottom:4px}
+.login-logo .l,.login-logo .s{color:var(--am)}
+.login-sub{font-size:11px;letter-spacing:4px;color:var(--gris);margin-bottom:36px}
+.login-label{font-size:11px;letter-spacing:3px;color:var(--gris);display:block;margin-bottom:8px}
+.login-input{width:100%;background:var(--bg3);border:1px solid var(--borde);border-radius:8px;padding:14px 16px;color:var(--texto);font-family:'Barlow',sans-serif;font-size:14px;outline:none;transition:border-color .2s;margin-bottom:16px}
+.login-input:focus{border-color:rgba(255,208,0,0.4)}
+.login-btn{width:100%;background:var(--am);color:#111;border:none;border-radius:8px;padding:16px;font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:background .2s;margin-top:8px}
+.login-btn:hover{background:var(--am2)}
+.login-error{color:var(--rojo);font-size:13px;margin-top:12px;text-align:center;display:none}
+
+/* ── DASHBOARD ── */
+#dashboard{display:none;height:100vh;overflow:hidden}
+.layout{display:grid;grid-template-columns:220px 1fr;height:100vh}
+
+/* SIDEBAR */
+.sidebar{background:var(--bg2);border-right:1px solid var(--borde);display:flex;flex-direction:column;overflow-y:auto}
+.sb-logo{padding:20px 20px 16px;border-bottom:1px solid var(--borde)}
+.sb-lps{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;letter-spacing:-1px}
+.sb-lps .l,.sb-lps .s{color:var(--am)}
+.sb-sub{font-size:9px;letter-spacing:4px;color:#444;margin-top:1px}
+.sb-section{font-size:10px;letter-spacing:3px;color:#333;padding:14px 20px 4px}
+.sb-item{display:flex;align-items:center;gap:10px;padding:10px 20px;font-size:13px;color:var(--gris);cursor:pointer;transition:all .2s;border-left:2px solid transparent}
+.sb-item:hover{background:var(--bg3);color:var(--texto)}
+.sb-item.active{background:var(--bg3);color:var(--am);border-left-color:var(--am);font-weight:600}
+.sb-icon{width:16px;height:16px;flex-shrink:0}
+.sb-bottom{margin-top:auto;padding:16px 20px;border-top:1px solid var(--borde)}
+.sb-user{font-size:12px;color:var(--gris);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb-logout{font-size:11px;color:var(--rojo);cursor:pointer;letter-spacing:1px}
+.sb-logout:hover{text-decoration:underline}
+
+/* MAIN */
+.main{display:flex;flex-direction:column;overflow:hidden}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--borde);background:var(--bg2);flex-shrink:0}
+.topbar-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;letter-spacing:-0.5px}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.plan-badge{background:var(--am);color:#111;font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;letter-spacing:1px}
+.alert-count{background:var(--rojo);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px}
+.content{flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:16px}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat{background:var(--bg2);border:1px solid var(--borde);border-radius:12px;padding:14px 16px}
+.stat-label{font-size:11px;color:var(--gris);letter-spacing:2px;margin-bottom:6px}
+.stat-val{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;letter-spacing:-1px}
+.stat-val.verde{color:var(--verde)}
+.stat-val.rojo{color:var(--rojo)}
+.stat-val.am{color:var(--am)}
+
+/* CAMERAS */
+.section-title{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:3px;color:var(--gris);margin-bottom:10px}
+.cameras{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.cam{background:var(--bg2);border:1px solid var(--borde);border-radius:12px;overflow:hidden;transition:border-color .2s}
+.cam:hover{border-color:rgba(255,208,0,0.3)}
+.cam-screen{height:110px;background:#0a0a0a;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer}
+.cam-label{position:absolute;bottom:8px;left:10px;font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:2px}
+.cam-live{position:absolute;top:8px;right:8px;background:var(--rojo);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.5}}
+.cam-offline-badge{position:absolute;top:8px;right:8px;background:#333;color:var(--gris);font-size:9px;padding:2px 6px;border-radius:4px}
+.cam-info{padding:10px 12px;display:flex;justify-content:space-between;align-items:center}
+.cam-name{font-size:13px;font-weight:600}
+.cam-status{font-size:12px}
+.cam-status.online{color:var(--verde)}
+.cam-status.offline{color:var(--rojo)}
+.cam-status.sin_senal{color:var(--gris)}
+
+/* BOTTOM GRID */
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.panel{background:var(--bg2);border:1px solid var(--borde);border-radius:12px;padding:14px 16px}
+.alert-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--borde);font-size:13px}
+.alert-item:last-child{border-bottom:none}
+.a-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.a-dot.critico{background:var(--rojo)}
+.a-dot.advertencia{background:var(--am)}
+.a-dot.info{background:var(--verde)}
+.a-time{color:var(--gris);font-size:11px;margin-left:auto;white-space:nowrap}
+.a-desc{flex:1;line-height:1.4}
+.empty{color:var(--gris);font-size:13px;text-align:center;padding:20px 0}
+
+/* GPS */
+.gps-map{height:100px;background:#0a0a0a;border-radius:8px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.gps-grid-lines{position:absolute;inset:0;opacity:0.1}
+.gps-dot{position:absolute;width:10px;height:10px;border-radius:50%;border:2px solid #fff}
+.gps-dot-label{position:absolute;font-size:9px;font-weight:600;white-space:nowrap}
+.gps-item{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--borde)}
+.gps-item:last-child{border-bottom:none}
+.gps-item span:last-child{color:var(--gris)}
+
+/* ALARM */
+.alarm-status{display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg3);border-radius:8px;margin-bottom:10px}
+.alarm-ico{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.alarm-ico.armada{background:rgba(39,174,96,0.15)}
+.alarm-ico.desarmada{background:rgba(231,76,60,0.15)}
+.alarm-name{font-size:14px;font-weight:600}
+.alarm-state{font-size:12px}
+.alarm-state.armada{color:var(--verde)}
+.alarm-state.desarmada{color:var(--rojo)}
+
+/* LOADING */
+.loading{display:flex;align-items:center;justify-content:center;height:200px;color:var(--gris);font-size:14px;letter-spacing:2px}
+
+/* ADMIN BADGE */
+.admin-badge{background:rgba(255,208,0,0.1);border:1px solid rgba(255,208,0,0.3);color:var(--am);font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:2px}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--borde);border-radius:2px}
+
+@media(max-width:768px){
+  .layout{grid-template-columns:1fr}
+  .sidebar{display:none}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .cameras{grid-template-columns:1fr}
+  .bottom-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo"><span class="l">L</span>P<span class="s">S</span></div>
+    <div class="login-sub">LÍDER EN SEGURIDAD</div>
+    <label class="login-label">EMAIL</label>
+    <input class="login-input" id="inp-email" type="email" placeholder="tu@email.com"/>
+    <label class="login-label">CONTRASEÑA</label>
+    <input class="login-input" id="inp-pass" type="password" placeholder="••••••••"/>
+    <button class="login-btn" onclick="doLogin()">Ingresar</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="layout">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sb-logo">
+        <div class="sb-lps"><span class="l">L</span>P<span class="s">S</span></div>
+        <div class="sb-sub">LÍDER EN SEGURIDAD</div>
+      </div>
+      <div class="sb-section">MONITOREO</div>
+      <div class="sb-item active" onclick="showSection('panel')">
+        <svg class="sb-icon" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        Panel general
+      </div>
+      <div class="sb-item" onclick="showSection('camaras')">
+        <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="2"/></svg>
+        Cámaras en vivo
+      </div>
+      <div class="sb-item" onclick="showSection('alertas')">
+        <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2a4 4 0 014 4c0 3 1 4 1 4H3s1-1 1-4a4 4 0 014-4zM6.5 13a1.5 1.5 0 003 0"/></svg>
+        Alertas
+        <span id="sb-alert-count" style="margin-left:auto;background:var(--rojo);color:#fff;font-size:10px;padding:1px 6px;border-radius:4px;display:none"></span>
+      </div>
+      <div class="sb-item" onclick="showSection('gps')">
+        <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2C5.8 2 4 3.8 4 6c0 3.5 4 8 4 8s4-4.5 4-8c0-2.2-1.8-4-4-4z"/><circle cx="8" cy="6" r="1.5"/></svg>
+        GPS / Maquinaria
+      </div>
+      <div class="sb-item" onclick="showSection('alarma')">
+        <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="9" rx="1"/><path d="M5 4V3a3 3 0 016 0v1"/></svg>
+        Alarma
+      </div>
+      <div class="sb-section" id="admin-section" style="display:none">ADMINISTRACIÓN</div>
+      <div class="sb-item" id="admin-clientes-btn" style="display:none" onclick="showSection('admin')">
+        <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="5" r="3"/><path d="M1 13c0-3 2.2-5 5-5s5 2 5 5"/><circle cx="12" cy="6" r="2"/><path d="M14 13c0-2-1-3-2-3"/></svg>
+        Clientes
+      </div>
+      <div class="sb-bottom">
+        <div class="sb-user" id="sb-user-email"></div>
+        <span id="sb-admin-badge" style="display:none" class="admin-badge">ADMIN LPS</span>
+        <div class="sb-logout" onclick="doLogout()">Cerrar sesión</div>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+      <div class="topbar">
+        <div class="topbar-title" id="topbar-title">Panel general</div>
+        <div class="topbar-right">
+          <span id="tb-alerts" class="alert-count" style="display:none"></span>
+          <span class="plan-badge" id="tb-plan">CARGANDO...</span>
+        </div>
+      </div>
+      <div class="content" id="main-content">
+        <div class="loading">CARGANDO...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const SUPA_URL = 'https://gesujigrxpqvyuquitmz.supabase.co';
+const SUPA_KEY = 'sb_publishable_jEvLMS6TZnRFgyAtEaY7JQ_Va8XpgYk';
+const { createClient } = supabase;
+const db = createClient(SUPA_URL, SUPA_KEY);
+
+const ADMIN_EMAIL = 'lpsliderenseguridad@gmail.com';
+let currentUser = null;
+let clienteData = null;
+let isAdmin = false;
+
+// ── AUTH ──
+async function doLogin() {
+  const email = document.getElementById('inp-email').value.trim();
+  const pass = document.getElementById('inp-pass').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  const { data, error } = await db.auth.signInWithPassword({ email, password: pass });
+  if (error) {
+    errEl.textContent = 'Email o contraseña incorrectos';
+    errEl.style.display = 'block';
+    return;
+  }
+  currentUser = data.user;
+  await initDashboard();
+}
+
+async function doLogout() {
+  await db.auth.signOut();
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+}
+
+async function initDashboard() {
+  isAdmin = currentUser.email === ADMIN_EMAIL;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('sb-user-email').textContent = currentUser.email;
+
+  if (isAdmin) {
+    document.getElementById('sb-admin-badge').style.display = 'inline-block';
+    document.getElementById('admin-section').style.display = 'block';
+    document.getElementById('admin-clientes-btn').style.display = 'flex';
+    document.getElementById('tb-plan').textContent = 'ADMIN';
+  }
+
+  // Cargar datos del cliente
+  if (!isAdmin) {
+    const { data } = await db.from('clientes').select('*').eq('user_id', currentUser.id).single();
+    clienteData = data;
+    if (clienteData) {
+      const planes = { basico: 'BÁSICO', hogar_total: 'HOGAR TOTAL', campo: 'CAMPO' };
+      document.getElementById('tb-plan').textContent = planes[clienteData.plan] || clienteData.plan.toUpperCase();
+    }
+  }
+
+  await renderPanel();
+  await checkAlertas();
+}
+
+// ── CHECK SESSION ──
+db.auth.getSession().then(({ data: { session } }) => {
+  if (session) {
+    currentUser = session.user;
+    initDashboard();
+  }
+});
+
+// ── LOGIN ENTER KEY ──
+document.getElementById('inp-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// ── ALERTAS BADGE ──
+async function checkAlertas() {
+  let q = db.from('alertas').select('id', { count: 'exact' }).eq('leida', false);
+  if (!isAdmin && clienteData) q = q.eq('cliente_id', clienteData.id);
+  const { count } = await q;
+  if (count > 0) {
+    document.getElementById('sb-alert-count').textContent = count;
+    document.getElementById('sb-alert-count').style.display = 'inline-block';
+    document.getElementById('tb-alerts').textContent = count + ' alertas nuevas';
+    document.getElementById('tb-alerts').style.display = 'inline-block';
+  }
+}
+
+// ── NAVEGACIÓN ──
+function showSection(sec) {
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  const titles = { panel:'Panel general', camaras:'Cámaras en vivo', alertas:'Alertas', gps:'GPS / Maquinaria', alarma:'Alarma', admin:'Administración — Clientes' };
+  document.getElementById('topbar-title').textContent = titles[sec] || sec;
+  const fns = { panel: renderPanel, camaras: renderCamaras, alertas: renderAlertas, gps: renderGPS, alarma: renderAlarma, admin: renderAdmin };
+  if (fns[sec]) fns[sec]();
+}
+
+// ── HELPERS ──
+function setContent(html) {
+  document.getElementById('main-content').innerHTML = html;
+}
+
+function timeAgo(ts) {
+  const diff = (Date.now() - new Date(ts)) / 1000;
+  if (diff < 60) return 'Hace ' + Math.round(diff) + 's';
+  if (diff < 3600) return 'Hace ' + Math.round(diff/60) + 'm';
+  if (diff < 86400) return 'Hace ' + Math.round(diff/3600) + 'h';
+  return new Date(ts).toLocaleDateString('es-AR');
+}
+
+function estadoColor(e) {
+  return e === 'online' ? 'verde' : e === 'offline' ? 'rojo' : 'sin_senal';
+}
+function estadoLabel(e) {
+  return e === 'online' ? '● Online' : e === 'offline' ? '● Offline' : '● Sin señal';
+}
+
+// ── PANEL GENERAL ──
+async function renderPanel() {
+  setContent('<div class="loading">CARGANDO...</div>');
+
+  let qDev = db.from('dispositivos').select('*').eq('activo', true);
+  let qAl = db.from('alertas').select('*').eq('leida', false).order('created_at', { ascending: false }).limit(5);
+
+  if (!isAdmin && clienteData) {
+    qDev = qDev.eq('cliente_id', clienteData.id);
+    qAl = qAl.eq('cliente_id', clienteData.id);
+  }
+
+  const [{ data: devs }, { data: alerts }] = await Promise.all([qDev, qAl]);
+
+  const camaras = (devs || []).filter(d => d.tipo.includes('camara') || d.tipo === 'videoportero');
+  const gps = (devs || []).filter(d => d.tipo === 'gps');
+  const alarmas = (devs || []).filter(d => d.tipo === 'alarma');
+  const online = (devs || []).filter(d => d.estado === 'online').length;
+  const alertCount = (alerts || []).length;
+
+  const camHtml = camaras.slice(0,3).map(c => `
+    <div class="cam">
+      <div class="cam-screen" onclick="alert('Integración de stream disponible cuando conectes la cámara real')">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+          <circle cx="20" cy="20" r="18" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+          <circle cx="20" cy="20" r="10" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+          <circle cx="20" cy="20" r="4" fill="rgba(255,255,255,0.15)"/>
+        </svg>
+        <div class="cam-label">${(c.nombre||'').toUpperCase()}</div>
+        ${c.estado==='online' ? '<div class="cam-live">EN VIVO</div>' : '<div class="cam-offline-badge">OFFLINE</div>'}
+      </div>
+      <div class="cam-info">
+        <span class="cam-name">${c.nombre}</span>
+        <span class="cam-status ${estadoColor(c.estado)}">${estadoLabel(c.estado)}</span>
+      </div>
+    </div>
+  `).join('') || '<div class="empty">No hay cámaras registradas</div>';
+
+  const alHtml = (alerts || []).map(a => `
+    <div class="alert-item">
+      <div class="a-dot ${a.nivel}"></div>
+      <div class="a-desc">${a.descripcion || a.tipo.replace(/_/g,' ')}</div>
+      <div class="a-time">${timeAgo(a.created_at)}</div>
+    </div>
+  `).join('') || '<div class="empty">Sin alertas nuevas</div>';
+
+  const gpsHtml = gps.map(g => `
+    <div class="gps-item">
+      <span>${g.nombre}</span>
+      <span>${g.ubicacion || 'Sin ubicación'}</span>
+    </div>
+  `).join('') || '<div class="empty">Sin GPS registrados</div>';
+
+  const alarmHtml = alarmas.map(a => `
+    <div class="alarm-status">
+      <div class="alarm-ico ${a.estado==='online'?'armada':'desarmada'}">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="${a.estado==='online'?'#27AE60':'#E74C3C'}" stroke-width="1.5">
+          <rect x="3" y="8" width="14" height="10" rx="2"/>
+          <path d="M7 8V6a3 3 0 016 0v2"/>
+        </svg>
+      </div>
+      <div>
+        <div class="alarm-name">${a.nombre}</div>
+        <div class="alarm-state ${a.estado==='online'?'armada':'desarmada'}">${a.estado==='online'?'Armada':'Desarmada'}</div>
+      </div>
+    </div>
+  `).join('') || '<div class="empty">Sin alarma registrada</div>';
+
+  setContent(`
+    <div class="stats">
+      <div class="stat"><div class="stat-label">DISPOSITIVOS</div><div class="stat-val verde">${online} / ${(devs||[]).length}</div></div>
+      <div class="stat"><div class="stat-label">ALERTAS NUEVAS</div><div class="stat-val ${alertCount>0?'rojo':'verde'}">${alertCount}</div></div>
+      <div class="stat"><div class="stat-label">CÁMARAS</div><div class="stat-val am">${camaras.length}</div></div>
+      <div class="stat"><div class="stat-label">GPS ACTIVOS</div><div class="stat-val">${gps.length}</div></div>
+    </div>
+    <div class="section-title">CÁMARAS</div>
+    <div class="cameras">${camHtml}</div>
+    <div class="bottom-grid">
+      <div class="panel"><div class="section-title">ÚLTIMAS ALERTAS</div>${alHtml}</div>
+      <div class="panel">
+        <div class="section-title">GPS — MAQUINARIA</div>
+        <div class="gps-map">
+          <svg width="100%" height="100%" style="position:absolute;inset:0;opacity:0.08"><line x1="0" y1="33%" x2="100%" y2="33%" stroke="#FFD000" stroke-width="0.5"/><line x1="0" y1="66%" x2="100%" y2="66%" stroke="#FFD000" stroke-width="0.5"/><line x1="33%" y1="0" x2="33%" y2="100%" stroke="#FFD000" stroke-width="0.5"/><line x1="66%" y1="0" x2="66%" y2="100%" stroke="#FFD000" stroke-width="0.5"/></svg>
+          ${gps.length===0?'<span style="color:var(--gris);font-size:12px">Sin GPS registrados</span>':'<div class="gps-dot" style="background:var(--am);top:35%;left:40%"></div>'}
+        </div>
+        ${gpsHtml}
+        <div class="section-title" style="margin-top:12px">ALARMA</div>
+        ${alarmHtml}
+      </div>
+    </div>
+  `);
+}
+
+// ── CÁMARAS ──
+async function renderCamaras() {
+  setContent('<div class="loading">CARGANDO CÁMARAS...</div>');
+  let q = db.from('dispositivos').select('*').in('tipo', ['camara_wifi','camara_solar_4g','videoportero']).eq('activo', true);
+  if (!isAdmin && clienteData) q = q.eq('cliente_id', clienteData.id);
+  const { data } = await q;
+
+  if (!data || data.length === 0) { setContent('<div class="empty" style="padding:40px">No hay cámaras registradas</div>'); return; }
+
+  const html = data.map(c => `
+    <div class="cam" style="margin-bottom:0">
+      <div class="cam-screen" style="height:160px" onclick="alert('Stream de ${c.nombre}\\n\\nCuando conectes la cámara real, acá va a aparecer el video en vivo.')">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <circle cx="24" cy="24" r="22" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+          <circle cx="24" cy="24" r="12" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+          <circle cx="24" cy="24" r="5" fill="rgba(255,255,255,0.12)"/>
+        </svg>
+        <div class="cam-label">${(c.ubicacion||c.nombre||'').toUpperCase()}</div>
+        ${c.estado==='online'?'<div class="cam-live">EN VIVO</div>':'<div class="cam-offline-badge">OFFLINE</div>'}
+      </div>
+      <div class="cam-info">
+        <div>
+          <div class="cam-name">${c.nombre}</div>
+          <div style="font-size:11px;color:var(--gris);margin-top:2px">${c.tipo.replace(/_/g,' ').toUpperCase()} ${c.modelo?'· '+c.modelo:''}</div>
+        </div>
+        <span class="cam-status ${estadoColor(c.estado)}">${estadoLabel(c.estado)}</span>
+      </div>
+    </div>
+  `).join('');
+
+  setContent(`<div class="cameras" style="grid-template-columns:repeat(2,1fr)">${html}</div>`);
+}
+
+// ── ALERTAS ──
+async function renderAlertas() {
+  setContent('<div class="loading">CARGANDO ALERTAS...</div>');
+  let q = db.from('alertas').select('*, dispositivos(nombre)').order('created_at', { ascending: false }).limit(30);
+  if (!isAdmin && clienteData) q = q.eq('cliente_id', clienteData.id);
+  const { data } = await q;
+
+  if (!data || data.length === 0) { setContent('<div class="empty" style="padding:40px">Sin alertas registradas</div>'); return; }
+
+  const html = data.map(a => `
+    <div class="alert-item" style="padding:12px 0">
+      <div class="a-dot ${a.nivel}" style="width:10px;height:10px"></div>
+      <div class="a-desc">
+        <div style="font-weight:600;margin-bottom:2px">${a.descripcion || a.tipo.replace(/_/g,' ')}</div>
+        <div style="font-size:11px;color:var(--gris)">${a.dispositivos?.nombre || '—'} · ${a.nivel.toUpperCase()}</div>
+      </div>
+      <div class="a-time">${timeAgo(a.created_at)}</div>
+    </div>
+  `).join('');
+
+  setContent(`<div class="panel" style="max-width:700px">${html}</div>`);
+
+  // Marcar como leídas
+  if (!isAdmin && clienteData) {
+    await db.from('alertas').update({ leida: true }).eq('cliente_id', clienteData.id);
+  }
+}
+
+// ── GPS ──
+async function renderGPS() {
+  setContent('<div class="loading">CARGANDO GPS...</div>');
+  let q = db.from('dispositivos').select('*').eq('tipo', 'gps').eq('activo', true);
+  if (!isAdmin && clienteData) q = q.eq('cliente_id', clienteData.id);
+  const { data } = await q;
+
+  if (!data || data.length === 0) { setContent('<div class="empty" style="padding:40px">Sin dispositivos GPS registrados</div>'); return; }
+
+  const html = data.map(g => `
+    <div class="panel" style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:16px;font-weight:600">${g.nombre}</div>
+        <span class="cam-status ${estadoColor(g.estado)}" style="font-size:13px">${estadoLabel(g.estado)}</span>
+      </div>
+      <div class="gps-map">
+        <svg width="100%" height="100%" style="position:absolute;inset:0;opacity:0.08"><line x1="0" y1="33%" x2="100%" y2="33%" stroke="#FFD000" stroke-width="0.5"/><line x1="0" y1="66%" x2="100%" y2="66%" stroke="#FFD000" stroke-width="0.5"/><line x1="33%" y1="0" x2="33%" y2="100%" stroke="#FFD000" stroke-width="0.5"/><line x1="66%" y1="0" x2="66%" y2="100%" stroke="#FFD000" stroke-width="0.5"/></svg>
+        <div class="gps-dot" style="background:var(--am);top:40%;left:45%"></div>
+      </div>
+      <div class="gps-item"><span>Ubicación</span><span>${g.ubicacion || 'Sin datos'}</span></div>
+      <div class="gps-item"><span>Modelo</span><span>${g.modelo || '—'}</span></div>
+      <div class="gps-item"><span>Batería</span><span>${g.bateria != null ? g.bateria+'%' : '—'}</span></div>
+      <div class="gps-item"><span>Última conexión</span><span>${g.ultima_conexion ? timeAgo(g.ultima_conexion) : '—'}</span></div>
+    </div>
+  `).join('');
+
+  setContent(`<div class="bottom-grid">${html}</div>`);
+}
+
+// ── ALARMA ──
+async function renderAlarma() {
+  setContent('<div class="loading">CARGANDO...</div>');
+  let q = db.from('dispositivos').select('*').eq('tipo', 'alarma').eq('activo', true);
+  if (!isAdmin && clienteData) q = q.eq('cliente_id', clienteData.id);
+  const { data } = await q;
+
+  if (!data || data.length === 0) { setContent('<div class="empty" style="padding:40px">Sin alarma registrada</div>'); return; }
+
+  const html = data.map(a => `
+    <div class="panel" style="max-width:500px">
+      <div class="alarm-status" style="margin-bottom:16px">
+        <div class="alarm-ico ${a.estado==='online'?'armada':'desarmada'}" style="width:48px;height:48px">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${a.estado==='online'?'#27AE60':'#E74C3C'}" stroke-width="1.5">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+        </div>
+        <div>
+          <div class="alarm-name" style="font-size:18px">${a.nombre}</div>
+          <div class="alarm-state ${a.estado==='online'?'armada':'desarmada'}" style="font-size:14px">${a.estado==='online'?'✓ Armada y activa':'✗ Desarmada'}</div>
+        </div>
+      </div>
+      <div class="gps-item"><span>Ubicación</span><span>${a.ubicacion||'—'}</span></div>
+      <div class="gps-item"><span>Modelo</span><span>${a.modelo||'—'}</span></div>
+      <div class="gps-item"><span>Estado</span><span class="cam-status ${estadoColor(a.estado)}">${estadoLabel(a.estado)}</span></div>
+      <div class="gps-item"><span>Última conexión</span><span>${a.ultima_conexion?timeAgo(a.ultima_conexion):'—'}</span></div>
+    </div>
+  `).join('');
+
+  setContent(html);
+}
+
+// ── ADMIN: CLIENTES ──
+async function renderAdmin() {
+  if (!isAdmin) return;
+  setContent('<div class="loading">CARGANDO CLIENTES...</div>');
+  const { data } = await db.from('clientes').select('*, dispositivos(count)').order('created_at', { ascending: false });
+
+  if (!data || data.length === 0) { setContent('<div class="empty" style="padding:40px">Sin clientes registrados</div>'); return; }
+
+  const planes = { basico:'BÁSICO', hogar_total:'HOGAR TOTAL', campo:'CAMPO' };
+  const estados = { activo:'verde', suspendido:'rojo', vencido:'am' };
+
+  const rows = data.map(c => `
+    <div class="alert-item" style="padding:14px 0;flex-wrap:wrap;gap:8px">
+      <div style="flex:1;min-width:200px">
+        <div style="font-weight:600;font-size:14px">${c.nombre} ${c.apellido}</div>
+        <div style="font-size:12px;color:var(--gris);margin-top:2px">${c.email||'—'} · ${c.telefono||'—'}</div>
+        <div style="font-size:11px;color:var(--gris);margin-top:2px">${c.localidad||'La Carlota'} · Alta: ${new Date(c.created_at).toLocaleDateString('es-AR')}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span style="background:rgba(255,208,0,0.1);border:1px solid rgba(255,208,0,0.2);color:var(--am);font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">${planes[c.plan]||c.plan}</span>
+        <span class="stat-val ${estados[c.estado]||'verde'}" style="font-size:12px">● ${c.estado.toUpperCase()}</span>
+        <span style="font-size:11px;color:var(--gris)">Vence: ${c.fecha_vencimiento?new Date(c.fecha_vencimiento).toLocaleDateString('es-AR'):'—'}</span>
+      </div>
+    </div>
+  `).join('');
+
+  setContent(`
+    <div class="stats">
+      <div class="stat"><div class="stat-label">TOTAL CLIENTES</div><div class="stat-val">${data.length}</div></div>
+      <div class="stat"><div class="stat-label">ACTIVOS</div><div class="stat-val verde">${data.filter(c=>c.estado==='activo').length}</div></div>
+      <div class="stat"><div class="stat-label">SUSPENDIDOS</div><div class="stat-val rojo">${data.filter(c=>c.estado==='suspendido').length}</div></div>
+      <div class="stat"><div class="stat-label">VENCIDOS</div><div class="stat-val am">${data.filter(c=>c.estado==='vencido').length}</div></div>
+    </div>
+    <div class="panel">${rows}</div>
+  `);
+}
+</script>
+</body>
+</html>
