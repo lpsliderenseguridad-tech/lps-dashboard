@@ -220,6 +220,10 @@ html,body{height:100%;font-family:'Barlow',sans-serif;background:var(--bg);color
         <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="5" r="3"/><path d="M1 13c0-3 2.2-5 5-5s5 2 5 5"/><circle cx="12" cy="6" r="2"/><path d="M14 13c0-2-1-3-2-3"/></svg>
         Clientes
       </div>
+      <div class="sb-item" id="admin-mf-btn" style="display:none" onclick="showSection('matafuegos',this)">
+        <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2C6 2 4 4 4 7c0 2 1 3 1 3H6l1 2h2l1-2h1s1-1 1-3c0-3-2-5-4-5z"/><rect x="6" y="12" width="4" height="2" rx="1"/></svg>
+        Matafuegos
+      </div>
       <div class="sb-bottom">
         <div class="sb-user" id="sb-user-email"></div>
         <span id="sb-admin-badge" style="display:none" class="admin-badge">ADMIN LPS</span>
@@ -354,6 +358,7 @@ async function initDashboard() {
     document.getElementById('sb-admin-badge').style.display = 'inline-block';
     document.getElementById('admin-section').style.display = 'block';
     document.getElementById('admin-clientes-btn').style.display = 'flex';
+    document.getElementById('admin-mf-btn').style.display = 'flex';
     document.getElementById('tb-plan').textContent = 'ADMIN';
   }
   if (!isAdmin) {
@@ -390,9 +395,9 @@ async function checkAlertas() {
 function showSection(sec, el) {
   document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
   if (el) el.classList.add('active');
-  const titles = { panel:'Panel general', camaras:'Cámaras en vivo', alertas:'Alertas', gps:'GPS / Maquinaria', alarma:'Alarma', admin:'Administración — Clientes' };
+  const titles = { panel:'Panel general', matafuegos:'Matafuegos', camaras:'Cámaras en vivo', alertas:'Alertas', gps:'GPS / Maquinaria', alarma:'Alarma', admin:'Administración — Clientes' };
   document.getElementById('topbar-title').textContent = titles[sec] || sec;
-  const fns = { panel:renderPanel, camaras:renderCamaras, alertas:renderAlertas, gps:renderGPS, alarma:renderAlarma, admin:renderAdmin };
+  const fns = { panel:renderPanel, matafuegos:renderMatafuegos, camaras:renderCamaras, alertas:renderAlertas, gps:renderGPS, alarma:renderAlarma, admin:renderAdmin };
   if (fns[sec]) fns[sec]();
 }
 
@@ -671,6 +676,483 @@ async function guardarCliente() {
 
   setTimeout(() => { closeModal(); renderAdmin(); }, 1500);
 }
+</script>
+
+<!-- MODAL FICHA MATAFUEGOS -->
+<div class="modal-overlay" id="modal-ficha" style="display:none" onclick="if(event.target===this)closeModalFicha()">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title">
+      FICHA CLIENTE
+      <button class="modal-close" onclick="closeModalFicha()">✕</button>
+    </div>
+    <div id="modal-ficha-body"></div>
+  </div>
+</div>
+
+<!-- MODAL REGISTRAR RECARGA -->
+<div class="modal-overlay" id="modal-recarga" style="display:none" onclick="if(event.target===this)closeModalRecarga()">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">
+      REGISTRAR RECARGA
+      <button class="modal-close" onclick="closeModalRecarga()">✕</button>
+    </div>
+    <div style="font-size:14px;font-weight:600;margin-bottom:20px;color:var(--am)" id="rec-nombre"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">FECHA RECARGA</label>
+        <input class="form-input" id="rec-fecha" type="date"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">NUEVO VENCIMIENTO</label>
+        <input class="form-input" id="rec-vencimiento" type="date"/>
+      </div>
+    </div>
+    <div class="section-title" style="margin-bottom:10px">EQUIPOS RECARGADOS</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">CANT. 1 KG</label>
+        <input class="form-input" id="rec-kg1" type="number" min="0" placeholder="0"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">CANT. 2.5 KG</label>
+        <input class="form-input" id="rec-kg25" type="number" min="0" placeholder="0"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">CANT. 5 KG</label>
+        <input class="form-input" id="rec-kg5" type="number" min="0" placeholder="0"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">CANT. 10 KG</label>
+        <input class="form-input" id="rec-kg10" type="number" min="0" placeholder="0"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">OTRO (opcional)</label>
+      <input class="form-input" id="rec-otro" type="text" placeholder="Ej: CO2 5kg"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">MONTO COBRADO ($)</label>
+        <input class="form-input" id="rec-monto" type="number" min="0" placeholder="0"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">OBSERVACIÓN</label>
+        <input class="form-input" id="rec-obs" type="text" placeholder="Opcional"/>
+      </div>
+    </div>
+    <div class="form-error" id="rec-error"></div>
+    <div class="form-success" id="rec-success"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModalRecarga()">Cancelar</button>
+      <button class="btn-primary" id="btn-rec-guardar" onclick="guardarRecarga()">GUARDAR RECARGA</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NUEVO CLIENTE MATAFUEGOS -->
+<div class="modal-overlay" id="modal-mf-nuevo" style="display:none" onclick="if(event.target===this)closeModalMfNuevo()">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">
+      NUEVO CLIENTE MATAFUEGOS
+      <button class="modal-close" onclick="closeModalMfNuevo()">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">NOMBRE / RAZÓN SOCIAL</label>
+      <input class="form-input" id="mf-nuevo-nombre" type="text" placeholder="GARCIA JUAN"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">TELÉFONO WHATSAPP</label>
+        <input class="form-input" id="mf-nuevo-tel" type="text" placeholder="3584123456"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">LOCALIDAD</label>
+        <input class="form-input" id="mf-nuevo-loc" type="text" placeholder="La Carlota"/>
+      </div>
+    </div>
+    <div class="section-title" style="margin-bottom:10px">EQUIPOS</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">CANT. 1 KG</label>
+        <input class="form-input" id="mf-nuevo-kg1" type="number" min="0" placeholder="0"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">CANT. 2.5 KG</label>
+        <input class="form-input" id="mf-nuevo-kg25" type="number" min="0" placeholder="0"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">CANT. 5 KG</label>
+        <input class="form-input" id="mf-nuevo-kg5" type="number" min="0" placeholder="0"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">CANT. 10 KG</label>
+        <input class="form-input" id="mf-nuevo-kg10" type="number" min="0" placeholder="0"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">VENCIMIENTO</label>
+      <input class="form-input" id="mf-nuevo-venc" type="date"/>
+    </div>
+    <div class="form-error" id="mf-nuevo-error"></div>
+    <div class="form-success" id="mf-nuevo-success"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModalMfNuevo()">Cancelar</button>
+      <button class="btn-primary" id="btn-mf-nuevo" onclick="guardarClienteMatafuegos()">GUARDAR CLIENTE</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── MATAFUEGOS ──
+async function renderMatafuegos() {
+  setContent(`
+    <div style="max-width:700px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div class="section-title" style="margin-bottom:0">GESTIÓN MATAFUEGOS</div>
+        <button class="btn-nuevo" onclick="openModalMatafuegosNuevo()">+ NUEVO CLIENTE</button>
+      </div>
+
+      <!-- BUSCADOR -->
+      <div class="panel" style="margin-bottom:16px;padding:16px">
+        <div style="display:flex;gap:10px">
+          <input class="form-input" id="mf-search" type="text" placeholder="Buscar por nombre o teléfono..." 
+            style="flex:1;margin-bottom:0" oninput="buscarMatafuegos()" autocomplete="off"/>
+          <button class="btn-primary" style="padding:12px 20px;white-space:nowrap" onclick="buscarMatafuegos()">BUSCAR</button>
+        </div>
+      </div>
+
+      <!-- RESULTADOS -->
+      <div id="mf-resultados"></div>
+    </div>
+  `);
+}
+
+async function buscarMatafuegos() {
+  const q = document.getElementById('mf-search').value.trim();
+  const res = document.getElementById('mf-resultados');
+  if (q.length < 2) { res.innerHTML = ''; return; }
+
+  res.innerHTML = '<div class="loading" style="height:80px">BUSCANDO...</div>';
+
+  // Buscar por nombre o teléfono
+  const { data: porNombre } = await db.from('matafuegos_clientes')
+    .select('*').ilike('propietario', `%${q}%`).limit(10);
+  const { data: porTel } = await db.from('matafuegos_clientes')
+    .select('*').ilike('telefono', `%${q}%`).limit(10);
+
+  // Combinar y deduplicar
+  const todos = [...(porNombre||[]), ...(porTel||[])];
+  const vistos = new Set();
+  const clientes = todos.filter(c => { if (vistos.has(c.id)) return false; vistos.add(c.id); return true; });
+
+  if (clientes.length === 0) {
+    res.innerHTML = `
+      <div class="panel" style="text-align:center;padding:24px">
+        <div style="color:var(--gris);margin-bottom:12px">No se encontró "${q}"</div>
+        <button class="btn-nuevo" onclick="openModalMatafuegosNuevo('${q}')">+ CARGAR COMO NUEVO</button>
+      </div>`;
+    return;
+  }
+
+  const hoy = new Date();
+  const rows = clientes.map(c => {
+    const venc = c.fecha_vencimiento ? new Date(c.fecha_vencimiento) : null;
+    const diasRestantes = venc ? Math.round((venc - hoy) / 86400000) : null;
+    let estadoColor = 'var(--gris)';
+    let estadoTexto = 'Sin fecha';
+    if (diasRestantes !== null) {
+      if (diasRestantes < 0) { estadoColor = 'var(--rojo)'; estadoTexto = `Vencido hace ${Math.abs(diasRestantes)}d`; }
+      else if (diasRestantes <= 30) { estadoColor = 'var(--am)'; estadoTexto = `Vence en ${diasRestantes}d`; }
+      else { estadoColor = 'var(--verde)'; estadoTexto = `Vence en ${diasRestantes}d`; }
+    }
+    const equipos = [];
+    if (c.kg1 > 0) equipos.push(`${c.kg1}x 1kg`);
+    if (c.kg25 > 0) equipos.push(`${c.kg25}x 2.5kg`);
+    if (c.kg5 > 0) equipos.push(`${c.kg5}x 5kg`);
+    if (c.kg10 > 0) equipos.push(`${c.kg10}x 10kg`);
+    if (c.otro) equipos.push(c.otro);
+
+    return `
+      <div class="panel" style="margin-bottom:10px;cursor:pointer" onclick="abrirFichaMatafuegos('${c.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:15px;margin-bottom:4px">${c.propietario || '—'}</div>
+            <div style="font-size:12px;color:var(--gris);margin-bottom:4px">
+              📱 ${c.telefono || 'Sin teléfono'} ${c.localidad ? '· '+c.localidad : ''}
+            </div>
+            <div style="font-size:12px;color:var(--gris)">
+              🧯 ${equipos.length > 0 ? equipos.join(', ') : 'Sin equipos registrados'}
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:12px;font-weight:700;color:${estadoColor}">${estadoTexto}</div>
+            ${venc ? `<div style="font-size:11px;color:var(--gris)">${venc.toLocaleDateString('es-AR')}</div>` : ''}
+            <div style="margin-top:8px">
+              <button class="btn-nuevo" style="font-size:10px;padding:6px 12px" 
+                onclick="event.stopPropagation();openModalRecarga('${c.id}','${(c.propietario||'').replace(/'/g,"\\'")}')">
+                RECARGAR
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  res.innerHTML = `<div style="font-size:11px;color:var(--gris);margin-bottom:8px">${clientes.length} resultado(s)</div>${rows}`;
+}
+
+// ── FICHA CLIENTE ──
+async function abrirFichaMatafuegos(id) {
+  const { data: c } = await db.from('matafuegos_clientes').select('*').eq('id', id).single();
+  const { data: recargas } = await db.from('matafuegos_recargas').select('*')
+    .eq('cliente_id', id).order('fecha_recarga', { ascending: false }).limit(10);
+
+  if (!c) return;
+
+  const equipos = [];
+  if (c.kg1 > 0) equipos.push(`${c.kg1}x 1kg`);
+  if (c.kg25 > 0) equipos.push(`${c.kg25}x 2.5kg`);
+  if (c.kg5 > 0) equipos.push(`${c.kg5}x 5kg`);
+  if (c.kg10 > 0) equipos.push(`${c.kg10}x 10kg`);
+
+  const hoy = new Date();
+  const venc = c.fecha_vencimiento ? new Date(c.fecha_vencimiento) : null;
+  const dias = venc ? Math.round((venc - hoy) / 86400000) : null;
+  let estadoColor = 'var(--gris)', estadoTexto = 'Sin fecha';
+  if (dias !== null) {
+    if (dias < 0) { estadoColor = 'var(--rojo)'; estadoTexto = `🔴 Vencido hace ${Math.abs(dias)} días`; }
+    else if (dias <= 30) { estadoColor = 'var(--am)'; estadoTexto = `🟡 Vence en ${dias} días`; }
+    else { estadoColor = 'var(--verde)'; estadoTexto = `🟢 Vence en ${dias} días`; }
+  }
+
+  const historialHtml = (recargas||[]).map(r => `
+    <div class="gps-item">
+      <span>${new Date(r.fecha_recarga).toLocaleDateString('es-AR')}</span>
+      <span style="color:var(--gris)">
+        ${[r.kg1>0?r.kg1+'x1kg':'', r.kg25>0?r.kg25+'x2.5kg':'', r.kg5>0?r.kg5+'x5kg':'', r.kg10>0?r.kg10+'x10kg':''].filter(Boolean).join(', ')||'—'}
+        ${r.monto ? ' · $'+r.monto : ''}
+      </span>
+    </div>`).join('') || '<div class="empty">Sin historial de recargas</div>';
+
+  document.getElementById('modal-ficha-body').innerHTML = `
+    <div style="margin-bottom:20px">
+      <div style="font-size:22px;font-weight:800;margin-bottom:4px">${c.propietario || '—'}</div>
+      <div style="font-size:13px;color:var(--gris);margin-bottom:12px">
+        📱 ${c.telefono || 'Sin teléfono'} ${c.localidad ? '· '+c.localidad : ''}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+        <span style="background:var(--bg3);border:1px solid var(--borde);padding:4px 10px;border-radius:6px;font-size:12px">
+          🧯 ${equipos.join(', ') || 'Sin equipos'}
+        </span>
+        <span style="color:${estadoColor};font-weight:700;font-size:13px">${estadoTexto}</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-nuevo" onclick="openModalRecarga('${c.id}','${(c.propietario||'').replace(/'/g,"\\'")}');closeModalFicha()">
+          🔄 REGISTRAR RECARGA
+        </button>
+        <button class="btn-secondary" style="font-size:12px;padding:8px 14px" 
+          onclick="editarTelefono('${c.id}','${c.telefono||''}')">
+          📱 CAMBIAR TELÉFONO
+        </button>
+        ${c.telefono ? `<button class="btn-secondary" style="font-size:12px;padding:8px 14px"
+          onclick="enviarWaManual('${c.telefono}','${(c.propietario||'').replace(/'/g,"\\'")}')">
+          💬 WHATSAPP
+        </button>` : ''}
+      </div>
+    </div>
+    <div class="section-title">HISTORIAL DE RECARGAS</div>
+    ${historialHtml}
+  `;
+  document.getElementById('modal-ficha').style.display = 'flex';
+}
+
+function closeModalFicha() {
+  document.getElementById('modal-ficha').style.display = 'none';
+}
+
+// ── MODAL RECARGA ──
+let recargaClienteId = null;
+
+function openModalRecarga(clienteId, nombre) {
+  recargaClienteId = clienteId;
+  document.getElementById('rec-nombre').textContent = nombre;
+  // Fecha hoy
+  document.getElementById('rec-fecha').value = new Date().toISOString().split('T')[0];
+  // Vencimiento = hoy + 1 año
+  const venc = new Date();
+  venc.setFullYear(venc.getFullYear() + 1);
+  document.getElementById('rec-vencimiento').value = venc.toISOString().split('T')[0];
+  // Limpiar campos
+  ['rec-kg1','rec-kg25','rec-kg5','rec-kg10'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('rec-otro').value = '';
+  document.getElementById('rec-monto').value = '';
+  document.getElementById('rec-obs').value = '';
+  document.getElementById('rec-error').style.display = 'none';
+  document.getElementById('rec-success').style.display = 'none';
+  document.getElementById('btn-rec-guardar').disabled = false;
+  document.getElementById('btn-rec-guardar').textContent = 'GUARDAR RECARGA';
+  document.getElementById('modal-recarga').style.display = 'flex';
+}
+
+function closeModalRecarga() {
+  document.getElementById('modal-recarga').style.display = 'none';
+}
+
+async function guardarRecarga() {
+  const errEl = document.getElementById('rec-error');
+  const sucEl = document.getElementById('rec-success');
+  const btn = document.getElementById('btn-rec-guardar');
+  errEl.style.display = 'none';
+
+  const kg1 = parseFloat(document.getElementById('rec-kg1').value) || 0;
+  const kg25 = parseFloat(document.getElementById('rec-kg25').value) || 0;
+  const kg5 = parseFloat(document.getElementById('rec-kg5').value) || 0;
+  const kg10 = parseFloat(document.getElementById('rec-kg10').value) || 0;
+  const otro = document.getElementById('rec-otro').value.trim() || null;
+  const monto = parseFloat(document.getElementById('rec-monto').value) || null;
+  const obs = document.getElementById('rec-obs').value.trim() || null;
+  const fecha = document.getElementById('rec-fecha').value;
+  const venc = document.getElementById('rec-vencimiento').value;
+
+  if (kg1 + kg25 + kg5 + kg10 === 0 && !otro) {
+    errEl.textContent = 'Ingresá al menos un equipo recargado';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'GUARDANDO...';
+
+  // Insertar recarga
+  const { error: errRec } = await db.from('matafuegos_recargas').insert([{
+    cliente_id: recargaClienteId,
+    fecha_recarga: fecha,
+    fecha_vencimiento: venc,
+    kg1, kg25, kg5, kg10, otro, monto, observacion: obs
+  }]);
+
+  if (errRec) {
+    errEl.textContent = 'Error: ' + errRec.message;
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'GUARDAR RECARGA';
+    return;
+  }
+
+  // Actualizar cliente con nueva fecha vencimiento y cantidades
+  await db.from('matafuegos_clientes').update({
+    fecha_vencimiento: venc,
+    fecha_servicio: fecha,
+    kg1: kg1||undefined,
+    kg25: kg25||undefined,
+    kg5: kg5||undefined,
+    kg10: kg10||undefined,
+    updated_at: new Date().toISOString()
+  }).eq('id', recargaClienteId);
+
+  sucEl.textContent = '✓ Recarga registrada correctamente';
+  sucEl.style.display = 'block';
+  btn.textContent = '✓ GUARDADO';
+
+  setTimeout(() => { closeModalRecarga(); buscarMatafuegos(); }, 1500);
+}
+
+// ── EDITAR TELÉFONO ──
+async function editarTelefono(id, telActual) {
+  const nuevo = prompt(`Teléfono actual: ${telActual||'sin número'}\n\nIngresá el nuevo número (ej: 3584123456):`);
+  if (!nuevo) return;
+  let tel = nuevo.replace(/\D/g,'');
+  if (tel.length === 10) tel = '+549' + tel;
+  else if (tel.length === 8) tel = '+5493584' + tel;
+  else tel = '+' + tel;
+
+  const { error } = await db.from('matafuegos_clientes').update({ telefono: tel }).eq('id', id);
+  if (error) { alert('Error: ' + error.message); return; }
+  alert('✓ Teléfono actualizado a ' + tel);
+  buscarMatafuegos();
+}
+
+// ── WHATSAPP MANUAL ──
+function enviarWaManual(tel, nombre) {
+  const msg = encodeURIComponent(`Hola ${nombre}, le recordamos desde LPS Seguridad que sus matafuegos están próximos a vencer. Comuníquese al 358 460-2508 para coordinar la recarga. Gracias!`);
+  window.open(`https://wa.me/${tel.replace('+','')}?text=${msg}`, '_blank');
+}
+
+// ── NUEVO CLIENTE MATAFUEGOS ──
+function openModalMatafuegosNuevo(nombrePre) {
+  document.getElementById('mf-nuevo-nombre').value = nombrePre || '';
+  document.getElementById('mf-nuevo-tel').value = '';
+  document.getElementById('mf-nuevo-loc').value = 'La Carlota';
+  document.getElementById('mf-nuevo-kg1').value = '';
+  document.getElementById('mf-nuevo-kg25').value = '';
+  document.getElementById('mf-nuevo-kg5').value = '';
+  document.getElementById('mf-nuevo-kg10').value = '';
+  const venc = new Date();
+  venc.setFullYear(venc.getFullYear() + 1);
+  document.getElementById('mf-nuevo-venc').value = venc.toISOString().split('T')[0];
+  document.getElementById('mf-nuevo-error').style.display = 'none';
+  document.getElementById('mf-nuevo-success').style.display = 'none';
+  document.getElementById('btn-mf-nuevo').disabled = false;
+  document.getElementById('btn-mf-nuevo').textContent = 'GUARDAR CLIENTE';
+  document.getElementById('modal-mf-nuevo').style.display = 'flex';
+}
+
+function closeModalMfNuevo() {
+  document.getElementById('modal-mf-nuevo').style.display = 'none';
+}
+
+async function guardarClienteMatafuegos() {
+  const errEl = document.getElementById('mf-nuevo-error');
+  const sucEl = document.getElementById('mf-nuevo-success');
+  const btn = document.getElementById('btn-mf-nuevo');
+  errEl.style.display = 'none';
+
+  const propietario = document.getElementById('mf-nuevo-nombre').value.trim().toUpperCase();
+  const telRaw = document.getElementById('mf-nuevo-tel').value.trim().replace(/\D/g,'');
+  const localidad = document.getElementById('mf-nuevo-loc').value.trim();
+  const kg1 = parseFloat(document.getElementById('mf-nuevo-kg1').value) || 0;
+  const kg25 = parseFloat(document.getElementById('mf-nuevo-kg25').value) || 0;
+  const kg5 = parseFloat(document.getElementById('mf-nuevo-kg5').value) || 0;
+  const kg10 = parseFloat(document.getElementById('mf-nuevo-kg10').value) || 0;
+  const venc = document.getElementById('mf-nuevo-venc').value;
+
+  if (!propietario) { errEl.textContent = 'El nombre es obligatorio'; errEl.style.display = 'block'; return; }
+
+  let telefono = null;
+  if (telRaw) {
+    if (telRaw.length === 10) telefono = '+549' + telRaw;
+    else if (telRaw.length === 8) telefono = '+5493584' + telRaw;
+    else telefono = '+' + telRaw;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'GUARDANDO...';
+
+  const hoy = new Date().toISOString().split('T')[0];
+  const { error } = await db.from('matafuegos_clientes').insert([{
+    propietario, telefono, localidad: localidad||null,
+    fecha_vencimiento: venc||null, fecha_servicio: hoy,
+    kg1, kg25, kg5, kg10
+  }]);
+
+  if (error) {
+    errEl.textContent = 'Error: ' + error.message;
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'GUARDAR CLIENTE';
+    return;
+  }
+
+  sucEl.textContent = '✓ Cliente cargado correctamente';
+  sucEl.style.display = 'block';
+  btn.textContent = '✓ GUARDADO';
+  setTimeout(() => { closeModalMfNuevo(); buscarMatafuegos(); }, 1500);
+}
+
 </script>
 </body>
 </html>
