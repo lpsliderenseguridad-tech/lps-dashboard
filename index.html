@@ -808,7 +808,10 @@ async function guardarCliente() {
 
 <script>
 // ── MATAFUEGOS ──
+let mfSeleccionados = new Set();
+
 async function renderMatafuegos() {
+  mfSeleccionados = new Set();
   setContent(`
     <div style="max-width:700px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -822,6 +825,16 @@ async function renderMatafuegos() {
           <input class="form-input" id="mf-search" type="text" placeholder="Buscar por nombre o teléfono..." 
             style="flex:1;margin-bottom:0" oninput="buscarMatafuegos()" autocomplete="off"/>
           <button class="btn-primary" style="padding:12px 20px;white-space:nowrap" onclick="buscarMatafuegos()">BUSCAR</button>
+        </div>
+      </div>
+
+      <!-- BARRA SELECCION -->
+      <div id="mf-barra-sel" style="display:none;background:rgba(255,208,0,0.1);border:1px solid rgba(255,208,0,0.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:none;align-items:center;justify-content:space-between;gap:10px">
+        <span id="mf-sel-count" style="font-size:13px;font-weight:600;color:var(--am)">0 seleccionados</span>
+        <div style="display:flex;gap:8px">
+          <button class="btn-nuevo" style="font-size:11px;padding:6px 12px" onclick="unirSeleccionados()">🔗 UNIR SELECCIONADOS</button>
+          <button class="btn-secondary" style="font-size:11px;padding:6px 12px;color:var(--rojo)" onclick="eliminarSeleccionados()">🗑️ ELIMINAR SELECCIONADOS</button>
+          <button class="btn-secondary" style="font-size:11px;padding:6px 12px" onclick="limpiarSeleccion()">✕ CANCELAR</button>
         </div>
       </div>
 
@@ -1286,6 +1299,77 @@ async function confirmarUnion(principalId, principalNombre) {
   alert(`✓ Listo! "${unirDesdeNombre}" fue unido a "${principalNombre}"`);
   closeModalUnir();
   closeModalFicha();
+  buscarMatafuegos();
+}
+
+
+// ── SELECCIÓN MÚLTIPLE ──
+function toggleSeleccion(id, checked) {
+  if (checked) mfSeleccionados.add(id);
+  else mfSeleccionados.delete(id);
+  actualizarBarraSeleccion();
+}
+
+function actualizarBarraSeleccion() {
+  const barra = document.getElementById('mf-barra-sel');
+  const count = document.getElementById('mf-sel-count');
+  if (!barra || !count) return;
+  if (mfSeleccionados.size >= 2) {
+    barra.style.display = 'flex';
+    count.textContent = mfSeleccionados.size + ' seleccionados';
+  } else {
+    barra.style.display = 'none';
+  }
+}
+
+function limpiarSeleccion() {
+  mfSeleccionados = new Set();
+  document.querySelectorAll('#mf-resultados input[type=checkbox]').forEach(cb => cb.checked = false);
+  actualizarBarraSeleccion();
+}
+
+async function eliminarSeleccionados() {
+  if (mfSeleccionados.size < 2) return;
+  if (!confirm(`¿Eliminar ${mfSeleccionados.size} clientes seleccionados?\n\nEsta acción no se puede deshacer.`)) return;
+  for (const id of mfSeleccionados) {
+    await db.from('matafuegos_recargas').delete().eq('cliente_id', id);
+    await db.from('matafuegos_clientes').delete().eq('id', id);
+  }
+  alert('✓ Clientes eliminados');
+  mfSeleccionados = new Set();
+  buscarMatafuegos();
+}
+
+async function unirSeleccionados() {
+  if (mfSeleccionados.size < 2) return;
+  const ids = Array.from(mfSeleccionados);
+  
+  // Cargar datos de todos los seleccionados
+  const { data: clientes } = await db.from('matafuegos_clientes')
+    .select('*').in('id', ids);
+  
+  if (!clientes) return;
+
+  // Mostrar modal para elegir el principal
+  const opciones = clientes.map((c,i) => `${i+1}. ${c.propietario||'—'} | ${c.telefono||'sin tel'} | vence: ${c.fecha_vencimiento ? new Date(c.fecha_vencimiento).toLocaleDateString('es-AR') : '—'}`).join('\n');
+  const eleccion = prompt(`¿Cuál es el cliente PRINCIPAL?\nIngresá el número (1-${clientes.length}):\n\n${opciones}`);
+  
+  const idx = parseInt(eleccion) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= clientes.length) {
+    alert('Número inválido'); return;
+  }
+
+  const principal = clientes[idx];
+  const duplicados = clientes.filter(c => c.id !== principal.id);
+
+  // Mover todas las recargas al principal
+  for (const dup of duplicados) {
+    await db.from('matafuegos_recargas').update({ cliente_id: principal.id }).eq('cliente_id', dup.id);
+    await db.from('matafuegos_clientes').delete().eq('id', dup.id);
+  }
+
+  alert(`✓ ${duplicados.length} duplicados unidos a "${principal.propietario}"`);
+  mfSeleccionados = new Set();
   buscarMatafuegos();
 }
 
