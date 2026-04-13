@@ -962,6 +962,14 @@ async function abrirFichaMatafuegos(id) {
           onclick="enviarWaManual('${c.telefono}','${(c.propietario||'').replace(/'/g,"\\'")}')">
           💬 WHATSAPP
         </button>` : ''}
+        <button class="btn-secondary" style="font-size:12px;padding:8px 14px;color:var(--am);border-color:rgba(255,208,0,0.3)"
+          onclick="abrirModalUnir('${c.id}','${(c.propietario||'').replace(/'/g,"\\'")}');closeModalFicha()">
+          🔗 UNIR CON OTRO
+        </button>
+        <button class="btn-secondary" style="font-size:12px;padding:8px 14px;color:var(--rojo);border-color:rgba(231,76,60,0.3)"
+          onclick="eliminarCliente('${c.id}','${(c.propietario||'').replace(/'/g,"\\'")}')">
+          🗑️ ELIMINAR
+        </button>
       </div>
     </div>
     <div class="section-title">HISTORIAL DE RECARGAS</div>
