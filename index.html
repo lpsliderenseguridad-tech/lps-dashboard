@@ -1154,5 +1154,133 @@ async function guardarClienteMatafuegos() {
 }
 
 </script>
+
+<!-- MODAL UNIR CLIENTES -->
+<div class="modal-overlay" id="modal-unir" style="display:none" onclick="if(event.target===this)closeModalUnir()">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-title">
+      UNIR CLIENTES
+      <button class="modal-close" onclick="closeModalUnir()">✕</button>
+    </div>
+    <div style="margin-bottom:16px;font-size:13px;color:var(--gris)">
+      Duplicado a eliminar: <span style="color:var(--rojo);font-weight:700" id="unir-desde"></span>
+    </div>
+    <div style="margin-bottom:12px;font-size:13px">Buscá el cliente <strong>principal</strong> donde se van a mover las recargas:</div>
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <input class="form-input" id="unir-search" type="text" placeholder="Nombre o teléfono..." 
+        style="flex:1;margin-bottom:0" oninput="buscarParaUnir()"/>
+    </div>
+    <div id="unir-resultados" style="border:1px solid var(--borde);border-radius:8px;max-height:300px;overflow-y:auto"></div>
+    <div class="form-error" id="unir-error" style="margin-top:10px"></div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn-secondary" onclick="closeModalUnir()">Cancelar</button>
+    </div>
+  </div>
+</div>
+<script>
+// ── ELIMINAR CLIENTE ──
+async function eliminarCliente(id, nombre) {
+  if (!confirm(`¿Eliminar a ${nombre}?\n\nEsta acción no se puede deshacer.`)) return;
+  
+  // Primero borrar recargas asociadas
+  await db.from('matafuegos_recargas').delete().eq('cliente_id', id);
+  // Luego borrar cliente
+  const { error } = await db.from('matafuegos_clientes').delete().eq('id', id);
+  
+  if (error) { alert('Error: ' + error.message); return; }
+  alert('✓ Cliente eliminado');
+  closeModalFicha();
+  buscarMatafuegos();
+}
+
+// ── UNIR CLIENTES ──
+let unirDesdeId = null;
+let unirDesdeNombre = null;
+
+function abrirModalUnir(id, nombre) {
+  unirDesdeId = id;
+  unirDesdeNombre = nombre;
+  document.getElementById('unir-desde').textContent = nombre;
+  document.getElementById('unir-search').value = '';
+  document.getElementById('unir-resultados').innerHTML = '';
+  document.getElementById('unir-error').style.display = 'none';
+  document.getElementById('modal-unir').style.display = 'flex';
+}
+
+function closeModalUnir() {
+  document.getElementById('modal-unir').style.display = 'none';
+}
+
+async function buscarParaUnir() {
+  const q = document.getElementById('unir-search').value.trim();
+  if (q.length < 2) return;
+  
+  const res = document.getElementById('unir-resultados');
+  res.innerHTML = '<div style="color:var(--gris);font-size:12px;padding:8px">Buscando...</div>';
+
+  const { data: porNombre } = await db.from('matafuegos_clientes')
+    .select('*').ilike('propietario', `%${q}%`).limit(8);
+  const { data: porTel } = await db.from('matafuegos_clientes')
+    .select('*').ilike('telefono', `%${q}%`).limit(8);
+
+  const todos = [...(porNombre||[]), ...(porTel||[])];
+  const vistos = new Set();
+  const clientes = todos.filter(c => {
+    if (c.id === unirDesdeId) return false; // excluir el origen
+    if (vistos.has(c.id)) return false;
+    vistos.add(c.id);
+    return true;
+  });
+
+  if (clientes.length === 0) {
+    res.innerHTML = '<div style="color:var(--gris);font-size:12px;padding:8px">Sin resultados</div>';
+    return;
+  }
+
+  res.innerHTML = clientes.map(c => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid var(--borde);cursor:pointer" 
+      onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''"
+      onclick="confirmarUnion('${c.id}','${(c.propietario||'').replace(/'/g,"\\'")}')">
+      <div>
+        <div style="font-weight:600;font-size:13px">${c.propietario||'—'}</div>
+        <div style="font-size:11px;color:var(--gris)">${c.telefono||'Sin teléfono'} ${c.localidad?'· '+c.localidad:''}</div>
+      </div>
+      <button class="btn-nuevo" style="font-size:10px;padding:5px 10px">SELECCIONAR</button>
+    </div>`).join('');
+}
+
+async function confirmarUnion(principalId, principalNombre) {
+  if (!confirm(`¿Unir?\n\n"${unirDesdeNombre}" → "${principalNombre}"\n\nEl historial de recargas se moverá al cliente principal y el duplicado se eliminará.`)) return;
+
+  document.getElementById('unir-error').style.display = 'none';
+
+  // Mover todas las recargas del duplicado al principal
+  const { error: errMove } = await db.from('matafuegos_recargas')
+    .update({ cliente_id: principalId })
+    .eq('cliente_id', unirDesdeId);
+
+  if (errMove) {
+    document.getElementById('unir-error').textContent = 'Error moviendo recargas: ' + errMove.message;
+    document.getElementById('unir-error').style.display = 'block';
+    return;
+  }
+
+  // Eliminar el duplicado
+  const { error: errDel } = await db.from('matafuegos_clientes')
+    .delete().eq('id', unirDesdeId);
+
+  if (errDel) {
+    document.getElementById('unir-error').textContent = 'Error eliminando duplicado: ' + errDel.message;
+    document.getElementById('unir-error').style.display = 'block';
+    return;
+  }
+
+  alert(`✓ Listo! "${unirDesdeNombre}" fue unido a "${principalNombre}"`);
+  closeModalUnir();
+  closeModalFicha();
+  buscarMatafuegos();
+}
+
+</script>
 </body>
 </html>
