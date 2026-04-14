@@ -473,25 +473,67 @@ async function renderPanel() {
 }
 
 // ── CÁMARAS ──
+// ── TUYA CONFIG ──
+const TUYA_DEVICE_ID = 'eba2532771c996f047xqub';
+const TUYA_CAM_NOMBRE = 'Cámara SICA IP WiFi';
+
+async function getTuyaStreamUrl() {
+  try {
+    const resp = await fetch('https://lps-tuya-proxy.vercel.app/api/stream?device_id=' + TUYA_DEVICE_ID);
+    if (resp.ok) {
+      const data = await resp.json();
+      return data.url || null;
+    }
+  } catch(e) {}
+  return null;
+}
+
 async function renderCamaras() {
   setContent('<div class="loading">CARGANDO CÁMARAS...</div>');
+
+  // Cámara Tuya real
+  const tuyaHtml = `
+    <div class="cam" style="grid-column:span 2">
+      <div class="cam-screen" style="height:300px;background:#000;position:relative" id="tuya-cam-container">
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="22" stroke="rgba(255,255,255,0.08)" stroke-width="1"/><circle cx="24" cy="24" r="12" stroke="rgba(255,255,255,0.1)" stroke-width="1"/><circle cx="24" cy="24" r="5" fill="rgba(255,255,255,0.12)"/></svg>
+          <div style="font-size:12px;color:var(--gris)">Para ver la cámara en vivo usá la app Smart Life</div>
+          <button class="btn-nuevo" style="font-size:11px;padding:8px 16px" onclick="window.open('https://smartlife.tuya.com','_blank')">
+            📱 ABRIR SMART LIFE
+          </button>
+        </div>
+        <div class="cam-live">EN VIVO</div>
+        <div class="cam-label">CÁMARA PRINCIPAL</div>
+      </div>
+      <div class="cam-info" style="padding:14px 16px">
+        <div>
+          <div class="cam-name" style="font-size:15px">${TUYA_CAM_NOMBRE}</div>
+          <div style="font-size:11px;color:var(--gris);margin-top:3px">SICA 915213 · 3MP · PTZ 355° · IP65 · WiFi</div>
+          <div style="font-size:11px;color:var(--gris);margin-top:2px">ID: ${TUYA_DEVICE_ID}</div>
+        </div>
+        <span class="cam-status online">● Online</span>
+      </div>
+    </div>`;
+
+  // Cámaras de Supabase
   let q = db.from('dispositivos').select('*').in('tipo', ['camara_wifi','camara_solar_4g','videoportero']).eq('activo', true);
   if (!isAdmin && clienteData) q = q.eq('cliente_id', clienteData.id);
   const { data } = await q;
-  if (!data || data.length === 0) { setContent('<div class="empty" style="padding:40px">No hay cámaras registradas</div>'); return; }
-  const html = data.map(c => `
+
+  const supaHtml = (data||[]).map(c => `
     <div class="cam">
-      <div class="cam-screen" style="height:160px" onclick="alert('Stream de ${c.nombre}\\nDisponible al conectar cámara real.')">
+      <div class="cam-screen" style="height:160px">
         <svg width="48" height="48" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="22" stroke="rgba(255,255,255,0.08)" stroke-width="1"/><circle cx="24" cy="24" r="12" stroke="rgba(255,255,255,0.1)" stroke-width="1"/><circle cx="24" cy="24" r="5" fill="rgba(255,255,255,0.12)"/></svg>
         <div class="cam-label">${(c.ubicacion||c.nombre||'').toUpperCase()}</div>
         ${c.estado==='online'?'<div class="cam-live">EN VIVO</div>':'<div class="cam-offline-badge">OFFLINE</div>'}
       </div>
       <div class="cam-info">
-        <div><div class="cam-name">${c.nombre}</div><div style="font-size:11px;color:var(--gris);margin-top:2px">${c.tipo.replace(/_/g,' ').toUpperCase()} ${c.modelo?'· '+c.modelo:''}</div></div>
+        <div><div class="cam-name">${c.nombre}</div><div style="font-size:11px;color:var(--gris);margin-top:2px">${c.tipo.replace(/_/g,' ').toUpperCase()}</div></div>
         <span class="cam-status ${estadoColor(c.estado)}">${estadoLabel(c.estado)}</span>
       </div>
     </div>`).join('');
-  setContent(`<div class="cameras" style="grid-template-columns:repeat(2,1fr)">${html}</div>`);
+
+  setContent(`<div class="cameras" style="grid-template-columns:repeat(2,1fr)">${tuyaHtml}${supaHtml}</div>`);
 }
 
 // ── ALERTAS ──
